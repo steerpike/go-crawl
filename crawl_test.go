@@ -20,16 +20,11 @@ func newTestServer() *httptest.Server {
 <link rel="canonical" href="https://www.last.fm/music/Gordi" data-replaceable-head-tag />
 </head>
 <body>
-<div
-    id="initial-tealium-data"
-    data-require="tracking/tealium-utag-set"
-    data-tealium-data="{&#34;siteSection&#34;: &#34;music&#34;, &#34;pageType&#34;: &#34;artist_door&#34;, &#34;pageName&#34;: &#34;music/artist/overview&#34;, &#34;nativeEventTracking&#34;: true, &#34;userState&#34;: &#34;not authenticated&#34;, &#34;userType&#34;: &#34;anon&#34;, &#34;musicArtistName&#34;: &#34;Gordi&#34;, &#34;artist&#34;: &#34;gordi&#34;, &#34;ar&#34;: &#34;gordi,wesleygonzalez,sad13,loyallobos,whitewizzard&#34;, &#34;tag&#34;: &#34;indiepop,indie,heavymetal,femalevocalists,australia&#34;}"
-    data-tealium-environment="prod"></div>
+<div id="initial-tealium-data" data-require="tracking/tealium-utag-set" data-tealium-data='{"siteSection": "music", "pageType": "artist_door", "pageName": "music/artist/overview", "nativeEventTracking": true, "userState": "not authenticated", "userType": "anon", "musicArtistName": "Gordi", "artist": "gordi", "ar": "gordi,wesleygonzalez,sad13,loyallobos,whitewizzard", "tag": "indiepop,indie,heavymetal,femalevocalists,australia"}' data-tealium-environment="prod"></div>
 
 <h1>Hello World</h1>
 <p class="description">This is a test page</p>
 <p class="description">This is a test paragraph</p>
-
 <ul class="
    tags-list
    tags-list--global
@@ -111,6 +106,7 @@ func TestCollectorOnArtist(t *testing.T) {
 		}
 	})
 	c.OnHTML("html", func(e *colly.HTMLElement) {
+
 		artistUrl := ac.GetArtistUrl(e)
 		if artistUrl != "https://www.last.fm/music/Gordi" {
 			t.Error("Found incorrect artist url, got", artistUrl)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/url"
@@ -32,12 +33,26 @@ func (ac ArtistCrawler) GetArtistUrl(e *colly.HTMLElement) string {
 	return e.ChildAttr(ac.UrlTag, ac.UrlAttribute)
 }
 
+func (ac ArtistCrawler) GetArtistJsonString(e *colly.HTMLElement) string {
+	return e.ChildAttr(ac.JsonTag, ac.JsonAttribute)
+}
+func (ac ArtistCrawler) GetArtistNameFromJson(e *colly.HTMLElement) string {
+	text := ac.GetArtistJsonString(e)
+	var result map[string]interface{}
+	err := json.Unmarshal([]byte(text), &result)
+	if err != nil {
+		log.Println(err)
+		return ""
+	}
+	name := fmt.Sprintf("%v", result["musicArtistName"])
+	return name
+}
+
 func main() {
-	target := os.Args[1]
-	if IsValidUrl(target) {
-		startCrawl(target)
+	if len(os.Args) > 1 && IsValidUrl(os.Args[1]) {
+		startCrawl(os.Args[1])
 	} else {
-		fmt.Println("Please provide a lastfm artist url")
+		fmt.Println("Please provide a lastfm artist url.")
 	}
 
 }
@@ -86,20 +101,21 @@ func startCrawl(url string) {
 
 	c.OnHTML(`html`, func(e *colly.HTMLElement) {
 		ac := ArtistCrawler{JsonTag: "#tlmdata", JsonAttribute: "data-tealium-data", UrlTag: "link[rel=canonical]", UrlAttribute: "href"}
-		log.Println(e.ChildAttr(ac.JsonTag, ac.JsonAttribute))
-		fmt.Println(e.ChildAttr("link[rel=canonical]", "href"))
+		log.Println(ac.GetArtistNameFromJson(e))
+		log.Println(ac.GetArtistUrl(e))
 		e.ForEach("li[class=tag]", func(_ int, kf *colly.HTMLElement) {
-			fmt.Println(kf.ChildAttr("a", "href"))
-			fmt.Println(kf.ChildText("a"))
+			log.Println(kf.ChildAttr("a", "href"))
+			log.Println(kf.ChildText("a"))
 		})
 		e.ForEach("h3[class=artist-similar-artists-sidebar-item-name]", func(_ int, kf *colly.HTMLElement) {
-			fmt.Println(kf.ChildAttr("a", "href"))
-			fmt.Println(kf.ChildText("a"))
+			log.Println(kf.ChildAttr("a", "href"))
+			log.Println(kf.ChildText("a"))
 		})
 		e.ForEach("td[class=chartlist-play]", func(_ int, x *colly.HTMLElement) {
-			fmt.Println(x.ChildAttr("a", "href"))
-			fmt.Println(x.ChildAttr("a", "data-track-name"))
+			log.Println(x.ChildAttr("a", "href"))
+			log.Println(x.ChildAttr("a", "data-track-name"))
 		})
+
 	})
 
 	c.Visit(url)
