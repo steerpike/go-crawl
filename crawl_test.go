@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/gocolly/colly"
@@ -20,7 +21,7 @@ func newTestServer() *httptest.Server {
 <link rel="canonical" href="https://www.last.fm/music/Gordi" data-replaceable-head-tag />
 </head>
 <body>
-<div id="initial-tealium-data" data-require="tracking/tealium-utag-set" data-tealium-data='{"siteSection": "music", "pageType": "artist_door", "pageName": "music/artist/overview", "nativeEventTracking": true, "userState": "not authenticated", "userType": "anon", "musicArtistName": "Gordi", "artist": "gordi", "ar": "gordi,wesleygonzalez,sad13,loyallobos,whitewizzard", "tag": "indiepop,indie,heavymetal,femalevocalists,australia"}' data-tealium-environment="prod"></div>
+<div id="initial-tealium-data" data-require="tracking/tealium-utag-set" data-tealium-data="{"siteSection": "music", "pageType": "artist_door", "pageName": "music/artist/overview", "nativeEventTracking": true, "userState": "not authenticated", "userType": "anon", "musicArtistName": "Gordi", "artist": "gordi", "ar": "gordi,wesleygonzalez,sad13,loyallobos,whitewizzard", "tag": "indiepop,indie,heavymetal,femalevocalists,australia"}" data-tealium-environment="prod"></div>
 
 <h1>Hello World</h1>
 <p class="description">This is a test page</p>
@@ -97,6 +98,8 @@ func TestCollectorOnArtist(t *testing.T) {
 	ac := ArtistCrawler{
 		JsonTag: "#tlmdata", JsonAttribute: "data-tealium-data",
 		UrlTag: "link[rel=canonical]", UrlAttribute: "href",
+		TagsAggregateTag: "li[class=tag]", TagLinkTag: "a",
+		TagNameAttribute: "href",
 	}
 	titleCallbackCalled := false
 	c.OnHTML("title", func(e *colly.HTMLElement) {
@@ -110,6 +113,14 @@ func TestCollectorOnArtist(t *testing.T) {
 		artistUrl := ac.GetArtistUrl(e)
 		if artistUrl != "https://www.last.fm/music/Gordi" {
 			t.Error("Found incorrect artist url, got", artistUrl)
+		}
+		artistTags := ac.GetArtistTags(e)
+		if reflect.ValueOf(artistTags).Kind() != reflect.Map {
+			t.Error("Expecting map, got", reflect.ValueOf(artistTags).Kind())
+		}
+		keys := reflect.ValueOf(artistTags).MapKeys()
+		if len(keys) != 5 {
+			t.Error("Expecting 5 tags, got", len(keys))
 		}
 	})
 	c.Visit(ts.URL + "/artist")

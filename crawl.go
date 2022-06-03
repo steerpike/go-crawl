@@ -36,6 +36,7 @@ func (ac ArtistCrawler) GetArtistUrl(e *colly.HTMLElement) string {
 func (ac ArtistCrawler) GetArtistJsonString(e *colly.HTMLElement) string {
 	return e.ChildAttr(ac.JsonTag, ac.JsonAttribute)
 }
+
 func (ac ArtistCrawler) GetArtistNameFromJson(e *colly.HTMLElement) string {
 	text := ac.GetArtistJsonString(e)
 	var result map[string]interface{}
@@ -48,11 +49,21 @@ func (ac ArtistCrawler) GetArtistNameFromJson(e *colly.HTMLElement) string {
 	return name
 }
 
+func (ac ArtistCrawler) GetArtistTags(e *colly.HTMLElement) map[string]string {
+	tags := map[string]string{}
+	e.ForEach(ac.TagsAggregateTag, func(_ int, kf *colly.HTMLElement) {
+		tagPath := kf.ChildAttr(ac.TagLinkTag, ac.TagNameAttribute)
+		tagName := kf.ChildText(ac.TagLinkTag)
+		tags[tagPath] = tagName
+	})
+	return tags
+}
+
 func main() {
 	if len(os.Args) > 1 && IsValidUrl(os.Args[1]) {
 		startCrawl(os.Args[1])
 	} else {
-		fmt.Println("Please provide a lastfm artist url.")
+		log.Println("Please provide a lastfm artist url.")
 	}
 
 }
@@ -92,21 +103,23 @@ func startCrawl(url string) {
 	c := colly.NewCollector()
 
 	c.OnRequest(func(r *colly.Request) {
-		fmt.Println("Visiting", r.URL)
+		log.Println("Visiting", r.URL)
 	})
 
 	c.OnResponse(func(r *colly.Response) {
-		fmt.Println(r.StatusCode)
+		log.Println(r.StatusCode)
 	})
 
 	c.OnHTML(`html`, func(e *colly.HTMLElement) {
-		ac := ArtistCrawler{JsonTag: "#tlmdata", JsonAttribute: "data-tealium-data", UrlTag: "link[rel=canonical]", UrlAttribute: "href"}
-		log.Println(ac.GetArtistNameFromJson(e))
-		log.Println(ac.GetArtistUrl(e))
-		e.ForEach("li[class=tag]", func(_ int, kf *colly.HTMLElement) {
-			log.Println(kf.ChildAttr("a", "href"))
-			log.Println(kf.ChildText("a"))
-		})
+		ac := ArtistCrawler{
+			JsonTag: "#tlmdata", JsonAttribute: "data-tealium-data",
+			UrlTag: "link[rel=canonical]", UrlAttribute: "href",
+			TagsAggregateTag: "li[class=tag]", TagLinkTag: "a",
+			TagNameAttribute: "href",
+		}
+		ac.GetArtistNameFromJson(e)
+		ac.GetArtistUrl(e)
+		ac.GetArtistTags(e)
 		e.ForEach("h3[class=artist-similar-artists-sidebar-item-name]", func(_ int, kf *colly.HTMLElement) {
 			log.Println(kf.ChildAttr("a", "href"))
 			log.Println(kf.ChildText("a"))
