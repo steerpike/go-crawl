@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,7 +12,10 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/gocolly/colly"
+	_ "github.com/mattn/go-sqlite3"
 )
+
+const fileName = "music.db"
 
 type ArtistCrawler struct {
 	JsonTag                    string
@@ -27,6 +31,7 @@ type ArtistCrawler struct {
 	VideosAggregateTag         string
 	VideoTag                   string
 	VideoAttribute             string
+	VideoNameAttribute         string
 }
 
 func (ac ArtistCrawler) GetArtistUrl(e *colly.HTMLElement) string {
@@ -57,6 +62,28 @@ func (ac ArtistCrawler) GetArtistTags(e *colly.HTMLElement) map[string]string {
 		tags[tagPath] = tagName
 	})
 	return tags
+}
+
+func (ac ArtistCrawler) GetSimilarArtists(e *colly.HTMLElement) map[string]string {
+	similarArtists := map[string]string{}
+	e.ForEach(ac.SimilarArtistsAggregateTag, func(_ int, kf *colly.HTMLElement) {
+		artistPath := kf.ChildAttr(ac.SimilarArtistsTag, ac.SimilarArtistsAttribute)
+		artistName := kf.ChildText(ac.SimilarArtistsTag)
+		similarArtists[artistPath] = artistName
+	})
+	return similarArtists
+}
+
+func (ac ArtistCrawler) GetVideoLinks(e *colly.HTMLElement) map[string]string {
+	videos := map[string]string{}
+	e.ForEach(ac.VideosAggregateTag, func(_ int, kf *colly.HTMLElement) {
+		videoPath := kf.ChildAttr(ac.VideoTag, ac.VideoAttribute)
+		videoName := kf.ChildAttr(ac.VideoTag, ac.VideoNameAttribute)
+		log.Println(videoPath)
+		log.Println(videoName)
+		videos[videoPath] = videoName
+	})
+	return videos
 }
 
 func main() {
@@ -99,9 +126,8 @@ func IsLastFMArtistPath(input string) bool {
 	return slices.Contains(paths, "music")
 }
 
-func startCrawl(url string) {
+func startCrawl(website string) {
 	c := colly.NewCollector()
-
 	c.OnRequest(func(r *colly.Request) {
 		log.Println("Visiting", r.URL)
 	})
@@ -115,21 +141,38 @@ func startCrawl(url string) {
 			JsonTag: "#tlmdata", JsonAttribute: "data-tealium-data",
 			UrlTag: "link[rel=canonical]", UrlAttribute: "href",
 			TagsAggregateTag: "li[class=tag]", TagLinkTag: "a",
-			TagNameAttribute: "href",
+			TagNameAttribute:           "href",
+			SimilarArtistsAggregateTag: "h3[class=artist-similar-artists-sidebar-item-name]",
+			SimilarArtistsTag:          "a", SimilarArtistsAttribute: "href",
+			VideosAggregateTag: "td[class=chartlist-play]", VideoTag: "a",
+			VideoAttribute: "href", VideoNameAttribute: "data-track-name",
 		}
-		ac.GetArtistNameFromJson(e)
-		ac.GetArtistUrl(e)
+		artist := Artist{}
+		artist.Name = ac.GetArtistNameFromJson(e)
+		artist.Url = ac.GetArtistUrl(e)
+		u, err := url.Parse(artist.Url)
+		if err != nil {
+			panic(err)
+		}
+		artist.Path = u.Path
 		ac.GetArtistTags(e)
-		e.ForEach("h3[class=artist-similar-artists-sidebar-item-name]", func(_ int, kf *colly.HTMLElement) {
-			log.Println(kf.ChildAttr("a", "href"))
-			log.Println(kf.ChildText("a"))
-		})
-		e.ForEach("td[class=chartlist-play]", func(_ int, x *colly.HTMLElement) {
-			log.Println(x.ChildAttr("a", "href"))
-			log.Println(x.ChildAttr("a", "data-track-name"))
-		})
-
+		ac.GetSimilarArtists(e)
+		ac.GetVideoLinks(e)
+		storeArtist(artist)
 	})
+	c.Visit(website)
+}
 
-	c.Visit(url)
+func storeArtist(a Artist) *Artist {
+	db, err := sql.Open("sqlite3", fileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	repository := NewSQLiteRespository(db)
+	er := repository.InitTables()
+	if er != nil {
+		log.Fatal("Creating table", er)
+	}
+	artist, err := repository.Insert(a)
+	return artist
 }

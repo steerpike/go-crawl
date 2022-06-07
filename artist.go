@@ -6,9 +6,10 @@ import (
 )
 
 type Artist struct {
-	ID   int    `json:"id"`
+	ID   int64  `json:"id"`
 	Name string `json:"name"`
 	Url  string `json:"url"`
+	Path string `json:"path"`
 }
 
 func (a *Artist) IsUrl() bool {

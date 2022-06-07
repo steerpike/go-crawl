@@ -1,4 +1,4 @@
-# Go LasFM Crawler
+# Go LastFM Crawler
 A command line tool to gather information and video links of artists from the lastfm website.
 
 ## Building locally

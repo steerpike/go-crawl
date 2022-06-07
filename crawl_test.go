@@ -66,6 +66,7 @@ func newTestServer() *httptest.Server {
 	<a href="/music/Loyal+Lobos" itemprop="url" class="link-block-target">Loyal Lobos</a>
 </h3>
 </body>
+
 </html>
 		`))
 	})
@@ -99,7 +100,9 @@ func TestCollectorOnArtist(t *testing.T) {
 		JsonTag: "#tlmdata", JsonAttribute: "data-tealium-data",
 		UrlTag: "link[rel=canonical]", UrlAttribute: "href",
 		TagsAggregateTag: "li[class=tag]", TagLinkTag: "a",
-		TagNameAttribute: "href",
+		TagNameAttribute:           "href",
+		SimilarArtistsAggregateTag: "h3[class=artist-similar-artists-sidebar-item-name]",
+		SimilarArtistsTag:          "a", SimilarArtistsAttribute: "href",
 	}
 	titleCallbackCalled := false
 	c.OnHTML("title", func(e *colly.HTMLElement) {
@@ -122,6 +125,19 @@ func TestCollectorOnArtist(t *testing.T) {
 		if len(keys) != 5 {
 			t.Error("Expecting 5 tags, got", len(keys))
 		}
+		similarArtists := ac.GetSimilarArtists(e)
+		numArtists := reflect.ValueOf(similarArtists).MapKeys()
+		if len(numArtists) != 3 {
+			t.Error("Expecting 3 similar artists, got", len(numArtists))
+		}
+		/*
+			videoLinks := ac.GetVideoLinks(e)
+			numVideos := reflect.ValueOf(videoLinks).MapKeys()
+
+				if len(numVideos) != 3 {
+					t.Error("Expecting 3 similar artists, got", len(numVideos))
+				}
+		*/
 	})
 	c.Visit(ts.URL + "/artist")
 
