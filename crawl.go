@@ -59,6 +59,7 @@ func (ac ArtistCrawler) GetArtistTags(e *colly.HTMLElement) map[string]string {
 	e.ForEach(ac.TagsAggregateTag, func(_ int, kf *colly.HTMLElement) {
 		tagPath := kf.ChildAttr(ac.TagLinkTag, ac.TagNameAttribute)
 		tagName := kf.ChildText(ac.TagLinkTag)
+		log.Println(tagName)
 		tags[tagPath] = tagName
 	})
 	return tags
@@ -69,6 +70,7 @@ func (ac ArtistCrawler) GetSimilarArtists(e *colly.HTMLElement) map[string]strin
 	e.ForEach(ac.SimilarArtistsAggregateTag, func(_ int, kf *colly.HTMLElement) {
 		artistPath := kf.ChildAttr(ac.SimilarArtistsTag, ac.SimilarArtistsAttribute)
 		artistName := kf.ChildText(ac.SimilarArtistsTag)
+		log.Println(artistName)
 		similarArtists[artistPath] = artistName
 	})
 	return similarArtists
@@ -158,12 +160,15 @@ func startCrawl(website string) {
 		ac.GetArtistTags(e)
 		ac.GetSimilarArtists(e)
 		ac.GetVideoLinks(e)
-		storeArtist(artist)
+		_, err = storeArtist(artist)
+		if err != nil {
+			log.Println("Tried to store artist but errored", err)
+		}
 	})
 	c.Visit(website)
 }
 
-func storeArtist(a Artist) *Artist {
+func storeArtist(a Artist) (*Artist, error) {
 	db, err := sql.Open("sqlite3", fileName)
 	if err != nil {
 		log.Fatal(err)
@@ -174,5 +179,9 @@ func storeArtist(a Artist) *Artist {
 		log.Fatal("Creating table", er)
 	}
 	artist, err := repository.Insert(a)
-	return artist
+	if err != nil {
+		log.Fatal("Error inserting artist", err)
+		return nil, err
+	}
+	return artist, nil
 }

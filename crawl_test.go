@@ -130,14 +130,6 @@ func TestCollectorOnArtist(t *testing.T) {
 		if len(numArtists) != 3 {
 			t.Error("Expecting 3 similar artists, got", len(numArtists))
 		}
-		/*
-			videoLinks := ac.GetVideoLinks(e)
-			numVideos := reflect.ValueOf(videoLinks).MapKeys()
-
-				if len(numVideos) != 3 {
-					t.Error("Expecting 3 similar artists, got", len(numVideos))
-				}
-		*/
 	})
 	c.Visit(ts.URL + "/artist")
 

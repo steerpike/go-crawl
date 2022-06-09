@@ -25,8 +25,8 @@ func (r *SQLiteRespository) InitTables() error {
 	CREATE TABLE IF NOT EXISTS artists(
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL,
-		url TEXT NOT NULL,
-		path TEXT NOT NULL
+		url TEXT NOT NULL UNIQUE,
+		path TEXT NOT NULL UNIQUE
 	);
 	`
 	_, err := r.db.Exec(query)
@@ -47,15 +47,3 @@ func (r *SQLiteRespository) Insert(a Artist) (*Artist, error) {
 	a.ID = id
 	return &a, nil
 }
-
-/*
-func (r *SQLiteRespository) Upsert(a Artist) (*Artist, error) {
-	row := r.db.QueryRow("SELECT * FROM artists WHERE url = ?", a.Url)
-	var existingArtist Artist
-	if err := row.Scan(&existingArtist.id, &existingArtist.name, &existingArtist.url, &existingArtist.path); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			//Insert here
-		}
-	}
-}
-*/
