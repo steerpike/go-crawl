@@ -18,11 +18,14 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.3.1 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kennygrant/sanitize v1.2.4 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
 	github.com/mattn/go-sqlite3 v1.14.13 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/saintfish/chardet v0.0.0-20120816061221-3af4cd4741ca // indirect
+	github.com/spf13/cobra v1.7.0 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/temoto/robotstxt v1.1.2 // indirect
 	golang.org/x/exp v0.0.0-20220518171630-0b5c67f07fdf // indirect
 	golang.org/x/net v0.0.0-20220524220425-1d687d428aca // indirect
