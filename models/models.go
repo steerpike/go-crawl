@@ -60,38 +60,27 @@ func (a *Artist) Save() (*Artist, error) {
 		}
 		// Insert tags
 		for _, tag := range a.Tags {
-			res, err := tx.Exec("INSERT INTO Tags (TagName) VALUES (?) ON CONFLICT(TagName) DO UPDATE SET TagName = ? RETURNING ID", tag, tag)
+			var tagID int
+			err := tx.QueryRowContext(ctx, "INSERT INTO Tags (TagName) VALUES (?) ON CONFLICT(TagName) DO UPDATE SET TagName = ? RETURNING ID", tag, tag).Scan(&tagID)
 			if err != nil {
 				tx.Rollback()
 				return fail(err)
 			}
-
-			tagId, err := res.LastInsertId()
-			if err != nil {
-				tx.Rollback()
-				return fail(err)
-			}
-
-			_, err = tx.Exec("INSERT OR IGNORE INTO Artist_Tags (ArtistID, TagID) VALUES (?, ?)", a.ID, tagId)
+			_, err = tx.Exec("INSERT OR IGNORE INTO Artist_Tags (ArtistID, TagID) VALUES (?, ?)", a.ID, tagID)
 			if err != nil {
 				tx.Rollback()
 				return fail(err)
 			}
 		}
 		for videoName, videoUrl := range a.Videos {
-			res, err := tx.Exec("INSERT INTO Videos (VideoName, VideoUrl) VALUES (?, ?) ON CONFLICT(VideoUrl) DO UPDATE SET (VideoName) = ? RETURNING ID", videoName, videoUrl, videoName)
+			var videoID int
+			err := tx.QueryRowContext(ctx, "INSERT INTO Videos (VideoName, VideoUrl) VALUES (?, ?) ON CONFLICT(VideoUrl) DO UPDATE SET VideoName = ? RETURNING ID", videoName, videoUrl, videoName).Scan(&videoID)
 			if err != nil {
 				tx.Rollback()
 				return fail(err)
 			}
 
-			videoId, err := res.LastInsertId()
-			if err != nil {
-				tx.Rollback()
-				return fail(err)
-			}
-
-			_, err = tx.Exec("INSERT OR IGNORE INTO Artist_Videos (ArtistID, VideoID) VALUES (?, ?)", a.ID, videoId)
+			_, err = tx.Exec("INSERT OR IGNORE INTO Artist_Videos (ArtistID, VideoID) VALUES (?, ?)", a.ID, videoID)
 			if err != nil {
 				tx.Rollback()
 				return fail(err)
