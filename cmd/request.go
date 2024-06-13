@@ -6,7 +6,6 @@ package cmd
 import (
 	"crawl/models"
 	"database/sql"
-	"fmt"
 	"log"
 	"regexp"
 	"strings"
@@ -15,27 +14,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func UrlExists(path string) bool {
+func UrlExists(url string) bool {
 	var exists bool
 	db, err := sql.Open("sqlite3", "music.db")
 	if err != nil {
 		log.Println("Something went wrong opening database:", err)
 	}
-	query := `SELECT 1 FROM Artists WHERE Path = ?`
-	err = db.QueryRow(query, path).Scan(&exists)
+	query := `SELECT 1 FROM Artists WHERE Url = ?`
+	err = db.QueryRow(query, url).Scan(&exists)
 	if err != nil && err != sql.ErrNoRows {
 		log.Fatalf("querying for url existence: %v", err)
 	}
 	return exists
 }
 
-func CrawlURLs(url string, crawlLimit int, fromId int64) {
+func CrawlURL(url string, sourceUrl string) {
 	c := colly.NewCollector()
 	pathSet := make(map[string]bool)
 	artist := models.Artist{}
 	tags := []string{}
 	similar := []string{}
 	videos := make(map[string]string)
+	artist.SourceUrl = sourceUrl
 	c.OnResponse(func(r *colly.Response) {
 		artist.Response = r.StatusCode
 	})
@@ -64,7 +64,7 @@ func CrawlURLs(url string, crawlLimit int, fromId int64) {
 
 	// Scrape similar artists
 	c.OnHTML("h3.artist-similar-artists-sidebar-item-name a", func(e *colly.HTMLElement) {
-		a := e.Text
+		a := e.Attr("href")
 		similar = append(similar, a)
 	})
 
@@ -92,41 +92,65 @@ func CrawlURLs(url string, crawlLimit int, fromId int64) {
 		artist.Tags = tags
 		artist.Videos = videos
 		artist.Similar = similar
-		artist.FromID = fromId
 		if strings.Contains(artist.Path, "music") {
 			artist.Save()
 		}
-
-		for path := range pathSet {
-			if crawlLimit > 0 {
-				crawlLimit--
-				if !UrlExists(path) {
-					url := "https://www.last.fm" + path
-					CrawlURLs(url, crawlLimit, artist.ID)
-					fmt.Println("Url found and crawled:", url)
-				}
-			}
-		}
 	})
+	if !UrlExists(url) {
+		c.Visit(url)
+	} else {
+		log.Printf("URL already exists in the database: %s", url)
+	}
 
-	c.Visit(url)
 }
 
-var crawlCmd = &cobra.Command{
-	Use:   "crawl",
-	Short: "Crawl a URL and find other URLs to crawl",
-	Long:  `Crawl a URL using the Colly library and find other URLs on that page to crawl`,
-	Args:  cobra.ExactArgs(1),
+var fetchCmd = &cobra.Command{
+	Use:   "fetch",
+	Short: "Fetch a URL for artist details and to find other related artists",
+	Long: `Fetch a URL using the Colly library and find artist details,
+	music, and other related artists on that page to crawl`,
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		url := args[0]
-		crawlLimit, _ := cmd.Flags().GetInt("limit")
-		CrawlURLs(url, crawlLimit, 0)
+		CrawlURL(url, "")
+	},
+}
+
+var harvestCmd = &cobra.Command{
+	Use:   "harvest",
+	Short: "Harvest the seed list for artist details and to find other related artists",
+	Long: `Harvests a list of previously found urls to find artist details,
+	music, and other related artists to add to the seed list`,
+	Args: cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		db, err := sql.Open("sqlite3", "music.db")
+		if err != nil {
+			log.Println("Something went wrong opening database while harvesting:", err)
+		}
+		rows, err := db.Query("SELECT Url, SourceUrl FROM Seeds LIMIT 1")
+		if err != nil {
+			log.Fatal(err)
+		}
+		for rows.Next() {
+			var url, sourceUrl string
+			err := rows.Scan(&url, &sourceUrl)
+			if err != nil {
+				log.Fatal(err)
+			}
+			rows.Close()
+			CrawlURL(url, sourceUrl)
+		}
+		err = rows.Err()
+		if err != nil {
+			log.Fatal(err)
+		}
 	},
 }
 
 func init() {
-	crawlCmd.Flags().IntP("limit", "l", 5, "Limit of how many URLs to crawl")
-	rootCmd.AddCommand(crawlCmd)
+	//fetchCmd.Flags().IntP("limit", "l", 5, "Limit of how many URLs to crawl")
+	rootCmd.AddCommand(fetchCmd)
+	rootCmd.AddCommand(harvestCmd)
 
 	// Here you will define your flags and configuration settings.
 

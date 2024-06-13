@@ -7,37 +7,43 @@ CREATE TABLE Artists (
     LastCrawled DATETIME
 );
 
+CREATE TABLE Seeds (
+    ID INTEGER PRIMARY KEY,
+    SourceUrl TEXT,
+    Url TEXT UNIQUE
+);
+
 CREATE TABLE Tags (
     ID INTEGER PRIMARY KEY,
-    TagName TEXT UNIQUE
+    Name TEXT UNIQUE
 );
 
 CREATE TABLE Videos (
     ID INTEGER PRIMARY KEY,
-    VideoName TEXT,
-    VideoUrl TEXT UNIQUE
+    Name TEXT,
+    Url TEXT UNIQUE
 );
 
 CREATE TABLE Artist_Tags (
-    ArtistID INTEGER,
-    TagID INTEGER,
-    FOREIGN KEY(ArtistID) REFERENCES Artists(ID),
-    FOREIGN KEY(TagID) REFERENCES Tags(ID),
-    UNIQUE(ArtistID, TagID)
+    ArtistUrl TEXT,
+    TagName TEXT,
+    FOREIGN KEY(ArtistUrl) REFERENCES Artists(Url),
+    FOREIGN KEY(TagName) REFERENCES Tags(Name),
+    UNIQUE(ArtistUrl, TagName)
 );
 
 CREATE TABLE Artist_Videos (
-    ArtistID INTEGER,
-    VideoID INTEGER,
-    FOREIGN KEY(ArtistID) REFERENCES Artists(ID),
-    FOREIGN KEY(VideoID) REFERENCES Videos(ID),
-    UNIQUE(ArtistID, VideoID)
+    ArtistUrl TEXT,
+    VideoUrl TEXT,
+    FOREIGN KEY(ArtistUrl) REFERENCES Artists(Url),
+    FOREIGN KEY(VideoUrl) REFERENCES Videos(Url),
+    UNIQUE(ArtistUrl, VideoUrl)
 );
 
 CREATE TABLE Similar_Artists (
-    ArtistID1 INTEGER,
-    ArtistID2 INTEGER,
-    FOREIGN KEY(ArtistID1) REFERENCES Artists(ID),
-    FOREIGN KEY(ArtistID2) REFERENCES Artists(ID),
-    UNIQUE(ArtistID1, ArtistID2)
+    ArtistUrl1 TEXT,
+    ArtistUrl2 TEXT,
+    FOREIGN KEY(ArtistUrl1) REFERENCES Artists(Url),
+    FOREIGN KEY(ArtistUrl2) REFERENCES Artists(Url),
+    UNIQUE(ArtistUrl1, ArtistUrl2)
 );

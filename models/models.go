@@ -10,15 +10,29 @@ import (
 )
 
 type Artist struct {
-	ID       int64             `json:"id"`
-	FromID   int64             `json:"fromId"`
-	Response int               `json:"response"`
-	Name     string            `json:"name"`
-	Url      string            `json:"url"`
-	Path     string            `json:"path"`
-	Tags     []string          `json:"tag"`
-	Similar  []string          `json:"similar"`
-	Videos   map[string]string `json:"videos"`
+	ID        int64             `json:"id"`
+	Response  int               `json:"response"`
+	Name      string            `json:"name"`
+	SourceUrl string            `json:"source"`
+	Url       string            `json:"url"`
+	Path      string            `json:"path"`
+	Tags      []string          `json:"tag"`
+	Similar   []string          `json:"similar"`
+	Videos    map[string]string `json:"videos"`
+}
+
+func ArtistExists(path string) bool {
+	var exists bool
+	db, err := sql.Open("sqlite3", "music.db")
+	if err != nil {
+		log.Println("Something went wrong opening database:", err)
+	}
+	query := `SELECT 1 FROM Artists WHERE Path = ?`
+	err = db.QueryRow(query, path).Scan(&exists)
+	if err != nil && err != sql.ErrNoRows {
+		log.Fatalf("querying for url existence: %v", err)
+	}
+	return exists
 }
 
 func (a *Artist) Save() (*Artist, error) {
@@ -47,50 +61,72 @@ func (a *Artist) Save() (*Artist, error) {
 		}
 		return fail(err)
 	}
-	fmt.Println("ID is:", id)
-	a.ID = id
-	// Check if there is a similar artist id to relate this to:
-	if a.ID != 0 {
-		if a.FromID != 0 && a.ID != 0 {
-			_, err = tx.Exec("INSERT OR IGNORE INTO Similar_Artists (ArtistID1, ArtistID2) VALUES (?, ?)", a.FromID, a.ID)
-			if err != nil {
-				tx.Rollback()
-				return fail(err)
-			}
-		}
-		// Insert tags
-		for _, tag := range a.Tags {
-			var tagID int
-			err := tx.QueryRowContext(ctx, "INSERT INTO Tags (TagName) VALUES (?) ON CONFLICT(TagName) DO UPDATE SET TagName = ? RETURNING ID", tag, tag).Scan(&tagID)
-			if err != nil {
-				tx.Rollback()
-				return fail(err)
-			}
-			_, err = tx.Exec("INSERT OR IGNORE INTO Artist_Tags (ArtistID, TagID) VALUES (?, ?)", a.ID, tagID)
-			if err != nil {
-				tx.Rollback()
-				return fail(err)
-			}
-		}
-		for videoName, videoUrl := range a.Videos {
-			var videoID int
-			err := tx.QueryRowContext(ctx, "INSERT INTO Videos (VideoName, VideoUrl) VALUES (?, ?) ON CONFLICT(VideoUrl) DO UPDATE SET VideoName = ? RETURNING ID", videoName, videoUrl, videoName).Scan(&videoID)
-			if err != nil {
-				tx.Rollback()
-				return fail(err)
-			}
+	fmt.Printf("NEW ID: %+v\n", id)
+	// Insert Tags
 
-			_, err = tx.Exec("INSERT OR IGNORE INTO Artist_Videos (ArtistID, VideoID) VALUES (?, ?)", a.ID, videoID)
+	for _, tag := range a.Tags {
+		var tagID int
+		err := tx.QueryRowContext(ctx, "INSERT INTO Tags (Name) VALUES (?) ON CONFLICT(Name) DO UPDATE SET Name = ? RETURNING ID", tag, tag).Scan(&tagID)
+		if err != nil {
+			tx.Rollback()
+			return fail(err)
+		}
+		_, err = tx.Exec("INSERT OR IGNORE INTO Artist_Tags (ArtistUrl, TagName) VALUES (?, ?)", a.Url, tag)
+		if err != nil {
+			tx.Rollback()
+			return fail(err)
+		}
+	}
+
+	// Insert Videos
+
+	for videoUrl, videoName := range a.Videos {
+		var videoID int
+		err := tx.QueryRowContext(ctx, "INSERT INTO Videos (Name, Url) VALUES (?, ?) ON CONFLICT(Url) DO UPDATE SET Name = ? RETURNING ID", videoName, videoUrl, videoName).Scan(&videoID)
+		if err != nil {
+			tx.Rollback()
+			return fail(err)
+		}
+		_, err = tx.Exec("INSERT OR IGNORE INTO Artist_Videos (ArtistUrl, VideoUrl) VALUES (?, ?)", a.Url, videoUrl)
+		if err != nil {
+			tx.Rollback()
+			return fail(err)
+		}
+	}
+	// Insert Seeds
+	for _, seed := range a.Similar {
+		url := "https://www.last.fm" + seed
+		if !ArtistExists(seed) {
+			_, err = tx.Exec("INSERT OR IGNORE INTO Seeds (SourceUrl, Url) VALUES (?, ?)", a.Url, url)
+			if err != nil {
+				tx.Rollback()
+				return fail(err)
+			}
+		} else { //Artist exists, so we need to insert the relationship
+			_, err = tx.Exec("INSERT OR IGNORE INTO Similar_Artists (ArtistUrl1, ArtistUrl2) VALUES (?, ?)", a.Url, url)
 			if err != nil {
 				tx.Rollback()
 				return fail(err)
 			}
 		}
-		fmt.Printf("%+v\n", a)
-	} else {
-		fmt.Println("Artist id was 0 for artist: ", a.Path)
-		fmt.Printf("%+v\n", a)
 	}
-	tx.Commit()
+	if a.SourceUrl != "" {
+		_, err = tx.Exec("INSERT OR IGNORE INTO Similar_Artists (ArtistUrl1, ArtistUrl2) VALUES (?, ?)", a.Url, a.SourceUrl)
+		if err != nil {
+			tx.Rollback()
+			return fail(err)
+		}
+		_, err = tx.Exec("DELETE FROM Seeds WHERE Url = ?", a.Url)
+		if err != nil {
+			tx.Rollback()
+			return fail(err)
+		}
+	}
+
+	fmt.Printf("%+v\n", a)
+	err = tx.Commit()
+	if err != nil {
+		log.Fatal(err)
+	}
 	return a, err
 }
