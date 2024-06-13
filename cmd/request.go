@@ -92,7 +92,8 @@ func CrawlURL(url string, sourceUrl string) {
 		artist.Tags = tags
 		artist.Videos = videos
 		artist.Similar = similar
-		if strings.Contains(artist.Path, "music") {
+		log.Printf("Scraped page for artist: %+v", artist)
+		if strings.Contains(artist.Url, "https://www.last.fm/music") {
 			artist.Save()
 		}
 	})
@@ -134,6 +135,7 @@ var harvestCmd = &cobra.Command{
 		for rows.Next() {
 			var url, sourceUrl string
 			err := rows.Scan(&url, &sourceUrl)
+			log.Println("url:", url)
 			if err != nil {
 				log.Fatal(err)
 			}
